@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Student support agent, prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F5FD; --surface:#FFFFFF; --ink:#1A1F3D; --muted:#646A8E; --line:#E4E8F6; --line-strong:#D0D6EE;
+  --brand:#5A61D8; --brand-ink:#3D44B4; --brand-tint:#EEF0FE; --brand-soft:#E0E4FD;
+  --low:#1C7F58; --low-bg:#E1F4EA; --med:#8F5308; --med-bg:#FEF0D3; --high:#BC3B2C; --high-bg:#FCE7E4;
+  --radius:20px; --r-md:14px;
+  --shadow:0 1px 2px rgba(45,55,140,.05), 0 10px 30px rgba(70,80,170,.07);
+  --sans:"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(1100px 480px at 88% -8%, #E4E8FF 0, rgba(228,232,255,0) 62%), var(--bg);
+  color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:8px}
+h1,h2,h3,p{margin:0}
+ul,ol{margin:0;padding:0;list-style:none}
+.tiny{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:14px 32px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#7178EC,#4B52CC);display:grid;place-items:center;color:#fff;box-shadow:0 6px 16px rgba(90,97,216,.32)}
+.brand-name{display:block;font-weight:800;font-size:18px;letter-spacing:-.02em;line-height:1.15}
+.protonote{display:block;font-size:12.5px;color:var(--muted)}
+.spacer{flex:1}
+.seg{display:inline-flex;align-items:center;gap:2px;background:var(--brand-tint);border:1px solid var(--line);border-radius:16px;padding:4px}
+.seg-label{padding:0 12px 0 10px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.seg button{border:0;background:transparent;padding:8px 18px;border-radius:12px;font-weight:600;color:var(--muted)}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--brand-ink);box-shadow:0 1px 2px rgba(45,55,140,.12), 0 0 0 1px var(--line)}
+.linkbtn{border:0;background:transparent;color:var(--muted);text-decoration:underline;text-underline-offset:3px;padding:6px}
+.linkbtn:hover{color:var(--brand-ink)}
+
+/* shell: sidebar, main, rail */
+.shell{max-width:1480px;margin:0 auto;padding:28px 32px 64px;display:grid;grid-template-columns:264px minmax(0,1fr) 312px;
+  grid-template-areas:"side main rail";gap:28px;align-items:start}
+.shell.staff{grid-template-columns:264px minmax(0,1fr) 400px}
+.side{grid-area:side;position:sticky;top:calc(96px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:22px}
+.main{grid-area:main;min-width:0;display:flex;flex-direction:column;gap:28px}
+.rail{grid-area:rail;min-width:0;display:flex;flex-direction:column;gap:20px}
+
+.who-card{display:flex;gap:12px;align-items:center;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+.who-card b{display:block;font-size:16px;font-weight:700;line-height:1.25}
+.avatar{width:42px;height:42px;flex:none;border-radius:13px;background:var(--brand-tint);color:var(--brand-ink);font-weight:800;font-size:18px;display:grid;place-items:center}
+.who{display:flex;flex-direction:column;gap:8px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);width:100%}
+.who select{border:1px solid var(--line-strong);background:var(--surface);border-radius:12px;padding:10px 12px;color:var(--ink);font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;width:100%}
+.who-card.pick{display:block}
+
+.navwrap{display:flex;flex-direction:column;gap:10px}
+.nav{display:flex;flex-direction:column;gap:6px}
+.nav button{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;text-align:left;padding:10px 12px;border:1px solid transparent;border-radius:16px;background:transparent}
+.nav button:hover{background:rgba(255,255,255,.7)}
+.nav button[aria-current="page"]{background:var(--surface);border-color:var(--line);box-shadow:var(--shadow)}
+.ni{width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--line);color:var(--brand);display:grid;place-items:center;flex:none}
+.nav button[aria-current="page"] .ni{background:var(--brand);border-color:var(--brand);color:#fff}
+.nt{display:block;font-weight:700;font-size:14.5px;line-height:1.25}
+.nd{display:block;font-size:12.5px;color:var(--muted);line-height:1.3}
+.nav button[aria-current="page"] .nt{color:var(--brand-ink)}
+.count{display:inline-block;min-width:22px;padding:1px 7px;border-radius:999px;background:var(--brand);color:#fff;font-size:12px;font-weight:700;text-align:center}
+
+.queue{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
+.qn{display:flex;align-items:baseline;gap:8px;margin:8px 0 12px}
+.qn b{font-size:36px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.qn span{color:var(--muted);font-size:13.5px}
+.qs li{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+.qs li b{color:var(--ink)}
+
+/* hero */
+.hero{position:relative;overflow:hidden;border-radius:26px;padding:38px 40px;background:linear-gradient(135deg,#F5F6FF 0%,#E6E9FE 100%);border:1px solid var(--line);box-shadow:var(--shadow)}
+.hero::after{content:"";position:absolute;right:-100px;top:-120px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,#D6DBFF,rgba(214,219,255,0) 70%);pointer-events:none}
+.hero > *{position:relative;z-index:1}
+.hero .badge{position:absolute;right:44px;top:36px;width:100px;height:100px;border-radius:30px;background:var(--surface);color:var(--brand);display:grid;place-items:center;box-shadow:0 18px 40px rgba(90,97,216,.2)}
+.hello{padding-right:130px}
+.hello h1{font-weight:800;font-size:clamp(34px,4.2vw,54px);letter-spacing:-.045em;line-height:1.04;color:var(--ink)}
+.hello p{color:var(--muted);margin-top:10px;font-size:16px}
+.hero.compact{padding:32px 40px}
+.hero.compact .hello{padding-right:0}
+.hero.compact .hello h1{font-size:clamp(28px,3.2vw,40px)}
+.note{margin-top:28px;padding:16px 18px;background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.9);border-radius:18px;
+  display:flex;gap:14px;align-items:center;flex-wrap:wrap;box-shadow:0 1px 2px rgba(45,55,140,.05)}
+.note .spark{width:38px;height:38px;border-radius:12px;background:var(--brand-tint);color:var(--brand);display:grid;place-items:center;flex:none}
+.note .txt{flex:1;min-width:220px;font-size:14px;color:var(--muted)}
+.note strong{display:block;color:var(--ink);font-size:15px}
+
+/* section heads and tiles */
+.sechead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.sechead h2{font-size:22px;font-weight:800;letter-spacing:-.025em}
+.chip-count{font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+.tile-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.tile .t{font-weight:700;font-size:16.5px;letter-spacing:-.01em}
+.tile .d{color:var(--muted);font-size:14px;flex:1}
+.askbtn{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;border:0;background:var(--brand-tint);color:var(--brand-ink);font-weight:600;font-size:13.5px;padding:8px 14px;border-radius:12px}
+.askbtn:hover{background:var(--brand-soft)}
+
+/* buttons and pills */
+.btn{border:1px solid var(--line-strong);background:var(--surface);padding:10px 18px;border-radius:12px;font-weight:600}
+.btn:hover{background:var(--brand-tint)}
+.btn.primary{background:linear-gradient(135deg,#6870E6,#525AD0);border-color:transparent;color:#fff;box-shadow:0 6px 16px rgba(90,97,216,.28)}
+.btn.primary:hover{background:linear-gradient(135deg,#5F67E0,#4850C6)}
+.btn.small{padding:6px 12px;font-size:13px;font-weight:600;border-radius:10px}
+.btn:disabled{opacity:.5;box-shadow:none}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px 4px 9px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.pill.low{background:var(--low-bg);color:var(--low)}
+.pill.med{background:var(--med-bg);color:var(--med)}
+.pill.high{background:var(--high-bg);color:var(--high)}
+.pill.neutral{background:var(--brand-tint);color:var(--brand-ink)}
+
+/* panels and rows */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel > h2{font-size:19px;font-weight:800;letter-spacing:-.02em;padding:20px 24px;border-bottom:1px solid var(--line)}
+.rows > li{padding:16px 24px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:center}
+.rows > li:last-child{border-bottom:0}
+.rows .t{font-weight:700}
+.rows .d{color:var(--muted);grid-column:1;font-size:14px}
+.rows .a{grid-row:1 / span 2;grid-column:2;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.empty{padding:28px 24px;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);margin-bottom:4px}
+
+/* right rail cards */
+.railcard{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:var(--shadow)}
+.ws{display:flex;gap:12px;align-items:center;margin:14px 0 4px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.ws b{display:block;font-size:16px;font-weight:700;line-height:1.25}
+.ws span.s{font-size:12.5px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.stat b{display:block;font-size:36px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.stat span{font-size:12.5px;color:var(--muted)}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checks span{background:var(--bg);border-radius:10px;padding:7px 10px;font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.checks svg{color:var(--low);flex:none}
+.privnote{margin-top:16px;padding:14px 16px;border-radius:14px;background:var(--brand-tint);color:var(--brand-ink);font-size:13.5px}
+.privnote strong{display:block;margin-bottom:2px}
+.how{margin-top:10px}
+.how li{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.how li:last-child{border-bottom:0;padding-bottom:0}
+.how .n{width:30px;height:30px;border-radius:10px;background:var(--brand-tint);color:var(--brand-ink);font-weight:700;font-size:13px;display:grid;place-items:center}
+.how b{display:block;font-size:14px;line-height:1.3}
+.how .s{font-size:12.5px;color:var(--muted)}
+
+/* chat */
+.chat{display:flex;flex-direction:column;height:min(720px,calc(100vh - 150px));min-height:480px;overflow:hidden}
+.chathead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line)}
+.chathead .l{display:flex;align-items:center;gap:14px}
+.chathead h2{font-size:20px;font-weight:800;letter-spacing:-.025em;line-height:1.2}
+.dotlive{width:10px;height:10px;border-radius:50%;background:#34B27B;box-shadow:0 0 0 4px #DDF3E8;flex:none}
+.tag{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-ink);background:var(--brand-tint);border:1px solid var(--brand-soft);border-radius:999px;padding:5px 12px}
+.log{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;background:linear-gradient(#fff,#FAFBFF)}
+.msg{display:flex}
+.msg.user{justify-content:flex-end}
+.bubble{max-width:78%;padding:12px 16px;border-radius:18px;background:#F3F5FE;border:1px solid var(--line)}
+.msg.user .bubble{background:linear-gradient(135deg,#6870E6,#525AD0);border-color:transparent;color:#fff;border-bottom-right-radius:6px;box-shadow:0 6px 16px rgba(90,97,216,.24)}
+.msg.agent .bubble{border-bottom-left-radius:6px}
+.sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;align-items:center;font-size:13px;color:var(--muted)}
+.chip{background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:2px 10px;font-size:12.5px;color:var(--brand-ink);font-weight:500}
+.blockednote{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:var(--muted)}
+.typing{display:flex;gap:4px;padding:14px 16px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--brand);opacity:.5;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:.9}}
+.quick{display:flex;gap:8px;flex-wrap:wrap;padding:12px 24px;border-top:1px solid var(--line);background:#FAFBFF}
+.quick button{border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:13.5px;color:var(--brand-ink);font-weight:500}
+.quick button:hover:not(:disabled){background:var(--brand-tint)}
+.quick button:disabled{opacity:.5}
+.composer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);background:var(--surface)}
+.composer input{flex:1;border:1px solid var(--line-strong);border-radius:14px;padding:12px 16px;background:var(--surface)}
+.composer input:focus{outline:2px solid var(--brand-soft);border-color:var(--brand)}
+.composer .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px}
+
+/* consent moment */
+.consent{border:1.5px solid var(--brand);border-radius:18px;background:var(--surface);padding:18px 20px;width:100%;max-width:560px;box-shadow:0 10px 30px rgba(90,97,216,.14)}
+.consent h3{font-size:16.5px;display:flex;gap:10px;align-items:center;color:var(--brand-ink)}
+.consent p{margin:8px 0 14px;color:var(--muted)}
+.shareGrid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.shareGrid > div{padding:12px 14px}
+.shareGrid > div + div{border-left:1px solid var(--line);background:var(--bg)}
+.shareGrid h4{margin:0 0 6px;font-size:13px;font-weight:700}
+.shareGrid li{font-size:13.5px;padding:2px 0}
+.shareGrid .yes li::before{content:"+ ";color:var(--low);font-weight:700}
+.shareGrid .no li::before{content:"\2212  ";color:var(--muted);font-weight:700}
+.consent .actions{display:flex;gap:10px;flex-wrap:wrap}
+.consent.done{border-color:var(--line-strong);box-shadow:none;background:var(--bg)}
+.doneline{display:flex;align-items:center;gap:8px;font-weight:500}
+.esc{border:1.5px solid var(--high);background:var(--high-bg);border-radius:18px;padding:18px 20px;max-width:560px}
+.esc h3{color:var(--high);font-size:16.5px;margin-bottom:6px}
+.esc li{margin-top:6px}
+
+/* support status */
+.case{padding:24px}
+.case + .case{border-top:1px solid var(--line)}
+.case h3{font-size:17px;font-weight:700}
+.case .meta{color:var(--muted);font-size:14px;margin-top:2px}
+.steps{display:flex;align-items:center;margin:20px 0 16px;padding:16px 18px;background:var(--bg);border-radius:16px}
+.step{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);flex:none}
+.step.done .dot{background:var(--brand);border-color:var(--brand)}
+.step.now{color:var(--ink);font-weight:700}
+.step.now .dot{border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
+.bar{flex:1;height:2px;background:var(--line-strong);margin:0 12px;min-width:20px}
+.bar.done{background:var(--brand)}
+.callout{background:var(--med-bg);color:var(--med);padding:12px 14px;border-radius:12px;font-weight:600;margin-bottom:12px}
+.sharedwith{font-size:14px;color:var(--muted)}
+.sharedwith + .sharedwith{margin-top:4px}
+
+/* staff */
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th{font-size:12.5px;font-weight:700;color:var(--muted);text-align:left;padding:14px 18px;border-bottom:1px solid var(--line);background:#FAFBFF}
+thead th:first-child{border-top-left-radius:var(--radius)}
+thead th:last-child{border-top-right-radius:var(--radius)}
+td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#F7F8FE}
+tbody tr[aria-selected="true"]{background:var(--brand-tint)}
+tbody tr[aria-selected="true"] td:first-child{box-shadow:inset 3px 0 0 var(--brand)}
+tbody tr:last-child td{border-bottom:0}
+.cn{font-weight:700;color:var(--brand-ink)}
+.detail{padding:24px}
+.detail > h2{font-size:20px;font-weight:800;letter-spacing:-.02em;padding:0;border:0}
+.detail .sub{color:var(--muted);margin-top:2px;font-size:14px}
+.detail h3{font-size:14px;font-weight:700;margin:22px 0 8px}
+.meter{position:relative;height:10px;background:var(--bg);border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:8px}
+.meter .fill{height:100%;border-radius:999px}
+.fill.low{background:var(--low)}.fill.med{background:#D89A1F}.fill.high{background:var(--high)}
+.meter .tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line-strong)}
+.scoreline{display:flex;align-items:baseline;gap:10px}
+.scoreline b{font-size:34px;font-weight:800;letter-spacing:-.04em}
+.evidence li{padding:8px 0 8px 18px;position:relative;border-bottom:1px solid var(--line);font-size:14.5px}
+.evidence li:last-child{border-bottom:0}
+.evidence li::before{content:"";position:absolute;left:0;top:16px;width:7px;height:7px;border-radius:50%;background:var(--brand)}
+.consentstamp{display:flex;gap:8px;align-items:center;color:var(--low);font-weight:600}
+.scope{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13.5px;color:var(--muted);margin-top:12px}
+.detail .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.status{font-size:13.5px;color:var(--muted);margin-top:10px}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:700;font-size:14px}
+.trace{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.trace li{padding:3px 0}
+.trace code{background:var(--brand-tint);border-radius:6px;padding:1px 6px;font-size:12.5px;color:var(--brand-ink)}
+
+/* responsive */
+@media (max-width:1240px){
+  .shell,.shell.staff{grid-template-columns:248px minmax(0,1fr);grid-template-areas:"side main" "side rail"}
+  .shell .rail{flex-direction:row;flex-wrap:wrap}
+  .shell:not(.staff) .rail > .railcard{flex:1 1 300px}
+  .shell.staff .rail > *{flex:1 1 100%}
+}
+@media (max-width:900px){
+  .topbar{padding:12px 16px}
+  .shell,.shell.staff{grid-template-columns:minmax(0,1fr);grid-template-areas:"side" "main" "rail";padding:18px 16px 40px;gap:20px}
+  .side{position:static}
+  .nav{flex-direction:row;overflow-x:auto;gap:6px;padding-bottom:2px}
+  .nav button{grid-template-columns:auto auto auto;min-width:max-content;padding:8px 12px 8px 8px}
+  .nd{display:none}
+  .hero,.hero.compact{padding:26px 22px}
+  .hero .badge{display:none}
+  .hello{padding-right:0}
+  .shareGrid{grid-template-columns:1fr}
+  .shareGrid > div + div{border-left:0;border-top:1px solid var(--line)}
+  .bubble{max-width:92%}
+}
+@media (max-width:640px){
+  .tiles{grid-template-columns:1fr}
+  .nav button{gap:8px;padding:6px 10px 6px 6px}
+  .nav .ni{width:30px;height:30px;border-radius:9px}
+  .nav .nt{font-size:13.5px}
+  .seg-label{display:none}
+  .chathead,.log,.quick{padding-left:16px;padding-right:16px}
+  .steps{flex-direction:column;align-items:flex-start;gap:8px}
+  .steps .bar{width:2px;height:14px;min-width:0;flex:none;margin:0 0 0 7px}
+}
+@media (prefers-reduced-motion:reduce){ .typing i{animation:none;opacity:.6} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+const { useState, useEffect, useRef } = React;
+const html = htm.bind(React.createElement);
+
+/* ---------- mock data ---------- */
+const DEPT_OF = {
+  wellbeing: "Counselling Service",
+  financial: "Scholarships & Financial Aid",
+  academic: "Academic Advising",
+  engagement: "Academic Advising"
+};
+const AREA = { wellbeing: "Wellbeing", financial: "Money", academic: "Studies", engagement: "Attendance" };
+
+const PERSONAS = {
+  counsellor: { label: "Counsellor", dept: "Counselling Service", domains: ["wellbeing"] },
+  finaid: { label: "Scholarship and financial aid officer", dept: "Scholarships & Financial Aid", domains: ["financial"] },
+  advisor: { label: "Academic advisor", dept: "Academic Advising", domains: ["academic", "engagement"] }
+};
+
+const ME = {
+  id: "S001", name: "Student 001", course: "Computer Science, year 2",
+  areas: [
+    { key: "academic", title: "Studies", score: 48, note: "Marks have dipped over the last three assessments.", ask: "Can I get help with my studies? What support exists?" },
+    { key: "engagement", title: "Attendance", score: 28, note: "Steady at 91% this term.", ask: "Check my attendance" },
+    { key: "financial", title: "Money", score: 74, note: "Tuition fees are 18 days overdue.", ask: "Help with fees" },
+    { key: "wellbeing", title: "Wellbeing", score: 63, note: "Your check-ins have been lower this week.", ask: "I've been feeling stressed lately" }
+  ]
+};
+const SCORE = Object.fromEntries(ME.areas.map(a => [a.key, a.score]));
+
+const EVIDENCE = {
+  wellbeing: ["Mood check-ins averaged 2.1 out of 5 over 7 days", "Stress rated 4 or 5 on 5 of the last 7 days", "3 assignments missed this month"],
+  financial: ["Tuition fees are 18 days overdue", "Available funds are below monthly need", "May qualify for the Merit Support Grant"],
+  academic: ["Marks: 68, 61, 54 across the last three assessments", "3 assignments missed this month"]
+};
+const SUMMARY = {
+  wellbeing: "Sustained low mood alongside falling academic activity. The student asked to be connected and agreed to share this summary.",
+  financial: "Overdue fees and limited funds, with likely eligibility for hardship support. The student agreed to share this summary.",
+  academic: "Declining marks and missed work over the past month. The student agreed to share this summary."
+};
+const SHARE = {
+  wellbeing: {
+    summary: "Lower mood check-ins for a week, alongside missed coursework.",
+    shared: ["Mood check-ins from the last 7 days", "Number of missed assignments"],
+    notShared: ["Your finances", "Your marks and attendance", "This chat"]
+  },
+  financial: {
+    summary: "Fees are overdue and available funds look tight.",
+    shared: ["Fee status and days overdue", "Scholarship eligibility"],
+    notShared: ["Your wellbeing check-ins", "Your marks and attendance", "This chat"]
+  },
+  academic: {
+    summary: "Marks have dipped and a few assignments were missed.",
+    shared: ["Marks for the last three assessments", "Number of missed assignments"],
+    notShared: ["Your finances", "Your wellbeing check-ins", "This chat"]
+  }
+};
+const TRACE_TOOLS = ["get_risk_profile", "search_support_kb", "suggest_case", "create_case"];
+
+function seedCases() {
+  const mk = (no, name, domain, score, state, opened) => ({
+    no, studentId: name.replace("Student ", "S"), studentName: name, domain, dept: DEPT_OF[domain],
+    score, state, opened, consentAt: opened,
+    evidence: EVIDENCE[domain], summary: SUMMARY[domain],
+    trace: { tools: TRACE_TOOLS, retrieved: 4, authorized: 3, blocked: 1, sent: 3 }
+  });
+  return [
+    mk("WEL0000122", "Student 031", "financial", 66, "In Progress", "Yesterday, 16:20"),
+    mk("WEL0000121", "Student 014", "wellbeing", 71, "New", "Today, 08:40"),
+    mk("WEL0000119", "Student 009", "academic", 47, "In Progress", "Yesterday, 11:05"),
+    mk("WEL0000118", "Student 022", "financial", 58, "New", "Yesterday, 09:32")
+  ];
+}
+
+/* ---------- helpers ---------- */
+let _id = 0;
+const uid = () => "m" + (++_id);
+const nowTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function lvl(score) {
+  if (score >= 70) return { key: "high", staff: "High", student: "Could use support", icon: "heart" };
+  if (score >= 40) return { key: "med", staff: "Medium", student: "Worth watching", icon: "eye" };
+  return { key: "low", staff: "Low", student: "Doing well", icon: "check" };
+}
+const studentStatus = s => ({ "New": "Received", "In Progress": "In progress", "Waiting for Student": "Action needed from you", "Resolved": "Resolved" }[s]);
+const stepIndex = s => ({ "New": 0, "In Progress": 1, "Waiting for Student": 1, "Resolved": 2 }[s]);
+
+const ICONS = {
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  heart: '<path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.4-7 10-7 10z"/>',
+  shield: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="m9 12 2 2 4-4"/>',
+  send: '<path d="M4 12 20 4l-6 16-2.5-6.5L4 12z"/>',
+  leaf: '<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14"/><path d="M5 19c2-4 5-7 9-9"/>',
+  home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4V5z"/>',
+  folder: '<path d="M4 6h6l2 2h8v11H4V6z"/>',
+  inbox: '<path d="M4 13l2-8h12l2 8v6H4v-6z"/><path d="M4 13h5l1 2h4l1-2h5"/>',
+  arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/>'
+};
+const Icon = ({ name, size = 16 }) => html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: ICONS[name] }}></svg>`;
+
+const StudentPill = ({ score }) => { const l = lvl(score); return html`<span className=${"pill " + l.key}><${Icon} name=${l.icon} size=${14}/>${l.student}</span>`; };
+const StaffPill = ({ score }) => { const l = lvl(score); return html`<span className=${"pill " + l.key}>${score} ${l.staff}</span>`; };
+
+/* ---------- mock agent ---------- */
+function proposal(domain, ctx) {
+  const exists = ctx.cases.some(c => c.studentId === ME.id && c.domain === domain) ||
+                 ctx.messages.some(m => m.type === "consent" && m.domain === domain && m.status === "pending");
+  if (exists) return [];
+  return [{ id: uid(), role: "agent", type: "consent", domain, dept: DEPT_OF[domain], status: "pending", ...SHARE[domain] }];
+}
+function respond(text, ctx) {
+  const t = text.toLowerCase();
+  const say = o => ({ id: uid(), role: "agent", type: "message", ...o });
+  if (/(hurt myself|end it all|suicid|self.?harm|no point|don't want to be here)/.test(t))
+    return [{ id: uid(), role: "agent", type: "escalation" }];
+  if (/(staff|triage|internal|other student|another student|someone else)/.test(t))
+    return [{ id: uid(), role: "agent", type: "blocked" }];
+  if (/\bfees?\b|money|\bpay|scholar|\bfunds?\b|tuition|grant|afford/.test(t))
+    return [say({
+      text: "Two things can help right now. You can ask for a short payment plan, and your results may make you eligible for the Merit Support Grant. The Scholarships and Financial Aid team can walk you through both.",
+      sources: ["Fee payment support", "Scholarships overview"], blocked: 1
+    }), ...proposal("financial", ctx)];
+  if (/attend|\bclass/.test(t))
+    return [say({ text: "Your attendance is 91% this term, which is steady. Nothing to worry about there.", sources: ["Your attendance record"] })];
+  if (/\b(lot|yes|sad|low)\b|stress|overwhelm|anxious|tired|struggl|talk|hard|feeling/.test(t))
+    return [say({
+      text: "That sounds like a lot, and it's good that you said something. Your check-ins have been lower this week and a few assignments have slipped. The Counselling Service offers short first conversations, and there are options for easing your workload too.",
+      sources: ["Counselling Service intro", "Academic Support Guide"], blocked: 0
+    }), ...proposal("wellbeing", ctx)];
+  if (/support|option|help|what/.test(t))
+    return [say({
+      text: "Here's what's available: academic advising to plan around deadlines, free peer tutoring, and extension requests. An advisor can look at your recent marks with you.",
+      sources: ["Academic Support Guide", "Tutoring FAQ"], blocked: 1
+    }), ...proposal("academic", ctx)];
+  return [say({ text: "I can talk through your studies, attendance, fees, or how you're feeling. Which would you like to start with?" })];
+}
+const firstMessage = () => [{ id: uid(), role: "agent", type: "message",
+  text: "Hi Student 001. I noticed you've missed a few assignments and your check-ins have been low this week. Want to talk about it?" }];
+
+/* ---------- student screens ---------- */
+function StudentHome({ cases, openChat, ask, goSupport }) {
+  const mine = cases.filter(c => c.studentId === ME.id);
+  return html`
+    <${React.Fragment}>
+      <section className="hero">
+        <span className="badge" aria-hidden="true"><${Icon} name="leaf" size=${44}/></span>
+        <div className="hello">
+          <h1>Hi ${ME.name}</h1>
+          <p>${ME.course}</p>
+        </div>
+        <div className="note">
+          <span className="spark" aria-hidden="true"><${Icon} name="spark" size=${18}/></span>
+          <div className="txt">
+            <strong>Your support agent left a note</strong>
+            A few things are worth a conversation. Nothing has been shared with anyone.
+          </div>
+          <button className="btn primary" onClick=${openChat}>Open chat</button>
+        </div>
+      </section>
+      <section aria-labelledby="how">
+        <div className="sechead"><h2 id="how">How you're doing</h2><span className="chip-count">${ME.areas.length} areas</span></div>
+        <div className="tiles">
+          ${ME.areas.map(a => html`
+            <article className="tile" key=${a.key}>
+              <div className="tile-top">
+                <span className="t">${a.title}</span>
+                <${StudentPill} score=${a.score}/>
+              </div>
+              <p className="d">${a.note}</p>
+              <button className="askbtn" onClick=${() => ask(a.ask)}>Ask about this<${Icon} name="arrow" size=${14}/></button>
+            </article>`)}
+        </div>
+      </section>
+      <section className="panel" aria-labelledby="sup">
+        <h2 id="sup">Your support</h2>
+        ${mine.length === 0
+          ? html`<div className="empty"><strong>Nothing shared yet</strong>Nothing goes to a department unless you say yes in the chat.</div>`
+          : html`<ul className="rows">
+              ${mine.map(c => html`
+                <li key=${c.no}>
+                  <span className="t">${AREA[c.domain]} support</span>
+                  <span className="d">${c.dept}</span>
+                  <span className="a"><span className="pill neutral">${studentStatus(c.state)}</span>
+                    <button className="btn small" onClick=${goSupport}>View</button></span>
+                </li>`)}
+            </ul>`}
+      </section>
+    <//>`;
+}
+
+function ConsentCard({ m, onConsent }) {
+  if (m.status !== "pending") {
+    return html`
+      <div className="consent done">
+        <div className="doneline">
+          <${Icon} name=${m.status === "accepted" ? "check" : "shield"} size=${18}/>
+          ${m.status === "accepted"
+            ? `Shared with the ${m.dept}. Case ${m.caseNo} is open.`
+            : `Not shared. Nothing was sent to the ${m.dept}.`}
+        </div>
+      </div>`;
+  }
+  return html`
+    <div className="consent" role="group" aria-label="Sharing request">
+      <h3><${Icon} name="shield" size=${18}/>Share this with the ${m.dept}?</h3>
+      <p>${m.summary} Nothing is sent unless you say yes.</p>
+      <div className="shareGrid">
+        <div className="yes"><h4>Will be shared</h4><ul>${m.shared.map(s => html`<li key=${s}>${s}</li>`)}</ul></div>
+        <div className="no"><h4>Stays private</h4><ul>${m.notShared.map(s => html`<li key=${s}>${s}</li>`)}</ul></div>
+      </div>
+      <div className="actions">
+        <button className="btn primary" onClick=${() => onConsent(m.id, true)}>Yes, share</button>
+        <button className="btn" onClick=${() => onConsent(m.id, false)}>Not now</button>
+      </div>
+    </div>`;
+}
+
+function Message({ m, onConsent }) {
+  if (m.role === "user") return html`<div className="msg user"><div className="bubble">${m.text}</div></div>`;
+  if (m.type === "consent") return html`<div className="msg agent"><${ConsentCard} m=${m} onConsent=${onConsent}/></div>`;
+  if (m.type === "blocked") return html`
+    <div className="msg agent"><div className="bubble">
+      I can't help with that. It's restricted to staff, and I didn't use it in this conversation.
+      <div className="blockednote"><${Icon} name="shield" size=${15}/>1 restricted source was blocked</div>
+    </div></div>`;
+  if (m.type === "escalation") return html`
+    <div className="msg agent"><div className="esc" role="alert">
+      <h3>Let's get you to a person</h3>
+      <p>If you might be in danger, call your local emergency number now. A member of the counselling team has been alerted and will reach out today.</p>
+      <ul><li>Campus crisis line, open 24 hours: 0800 000 0000 (demo number)</li><li>You can keep chatting here while you wait.</li></ul>
+    </div></div>`;
+  return html`
+    <div className="msg agent"><div className="bubble">
+      ${m.text}
+      ${m.sources && m.sources.length ? html`<div className="sources">Sources ${m.sources.map(s => html`<span className="chip" key=${s}>${s}</span>`)}</div>` : null}
+      ${m.blocked ? html`<div className="blockednote"><${Icon} name="shield" size=${15}/>${m.blocked} restricted source was blocked before I answered</div>` : null}
+    </div></div>`;
+}
+
+function Chat({ messages, typing, send, onConsent }) {
+  const [draft, setDraft] = useState("");
+  const logRef = useRef(null);
+  useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [messages, typing]);
+  const go = () => { send(draft); setDraft(""); };
+  const quick = ["I've been feeling stressed lately", "Help with fees", "What support is there?", "Check my attendance"];
+  return html`
+    <div className="chatwrap">
+      <section className="panel chat" aria-label="Chat with your support agent">
+        <div className="chathead">
+          <div className="l"><span className="dotlive" aria-hidden="true"></span>
+            <div><div className="tiny">Support agent</div><h2>How can I help?</h2></div></div>
+          <span className="tag">Student</span>
+        </div>
+        <div className="log" ref=${logRef} role="log" aria-live="polite">
+          ${messages.map(m => html`<${Message} key=${m.id} m=${m} onConsent=${onConsent}/>`)}
+          ${typing ? html`<div className="msg agent"><div className="bubble typing" aria-label="Agent is typing"><i></i><i></i><i></i></div></div>` : null}
+        </div>
+        <div className="quick">${quick.map(q => html`<button key=${q} onClick=${() => send(q)} disabled=${typing}>${q}</button>`)}</div>
+        <div className="composer">
+          <input value=${draft} placeholder="Write a message" aria-label="Message"
+            onChange=${e => setDraft(e.target.value)}
+            onKeyDown=${e => { if (e.key === "Enter") go(); }}/>
+          <button className="btn primary" onClick=${go} disabled=${typing || !draft.trim()}><${Icon} name="send" size=${15}/>Send</button>
+        </div>
+      </section>
+    </div>`;
+}
+
+function Support({ cases, goChat }) {
+  const mine = cases.filter(c => c.studentId === ME.id);
+  const steps = ["Received", "In progress", "Resolved"];
+  return html`
+    <div className="chatwrap">
+      <section className="panel" aria-labelledby="ms">
+        <h2 id="ms">My support</h2>
+        ${mine.length === 0
+          ? html`<div className="empty"><strong>You haven't shared anything yet</strong>
+              When you agree to share something in the chat, you can follow it here.
+              <div style=${{ marginTop: 12 }}><button className="btn" onClick=${goChat}>Open chat</button></div></div>`
+          : mine.map(c => {
+              const idx = stepIndex(c.state);
+              return html`
+                <div className="case" key=${c.no}>
+                  <h3>${AREA[c.domain]} support</h3>
+                  <p className="meta">${c.dept}, case ${c.no}</p>
+                  <div className="steps" role="list">
+                    ${steps.map((s, i) => html`
+                      <${React.Fragment} key=${s}>
+                        <div role="listitem" className=${"step " + (i < idx ? "done" : i === idx ? "now done" : "")}>
+                          <span className="dot"></span>${s}
+                        </div>
+                        ${i < steps.length - 1 ? html`<span className=${"bar " + (i < idx ? "done" : "")}></span>` : null}
+                      <//>`)}
+                  </div>
+                  ${c.state === "Waiting for Student" ? html`<div className="callout">Action needed from you: the team has asked for a little more information.</div>` : null}
+                  <p className="sharedwith">Shared with the ${c.dept}: ${SHARE[c.domain].shared.join(", ").toLowerCase()}.</p>
+                  <p className="sharedwith">${c.state === "Resolved" ? "This case is resolved." : "Next step: someone from the team will get in touch."}</p>
+                </div>`;
+            })}
+      </section>
+    </div>`;
+}
+
+function StudentRail({ cases }) {
+  const mine = cases.filter(c => c.studentId === ME.id).length;
+  const steps = [
+    ["Ask in chat", "Say what is on your mind."],
+    ["Choose what to share", "You see exactly what is shared before anything is sent."],
+    ["Follow it", "Track progress under My support."]
+  ];
+  return html`
+    <aside className="rail" aria-label="Your workspace">
+      <section className="railcard">
+        <div className="tiny">Your workspace</div>
+        <div className="ws">
+          <span className="ni" aria-hidden="true"><${Icon} name="shield" size=${20}/></span>
+          <div><b>Student workspace</b><span className="s">Private to you</span></div>
+        </div>
+        <div className="stats">
+          <div className="stat"><b>${ME.areas.length}</b><span>areas we look at</span></div>
+          <div className="stat"><b>${mine}</b><span>${mine === 1 ? "case shared" : "cases shared"}</span></div>
+        </div>
+        <div className="checks">${ME.areas.map(a => html`<span key=${a.key}><${Icon} name="check" size=${14}/>${a.title}</span>`)}</div>
+        <div className="privnote"><strong>Sharing stays with you</strong>Nothing goes to a department unless you say yes in the chat.</div>
+      </section>
+      <section className="railcard">
+        <div className="tiny">How sharing works</div>
+        <ol className="how">
+          ${steps.map((s, i) => html`<li key=${s[0]}><span className="n">${i + 1}</span><div><b>${s[0]}</b><span className="s">${s[1]}</span></div></li>`)}
+        </ol>
+      </section>
+    </aside>`;
+}
+
+function StudentApp({ cases, messages, typing, send, onConsent, tab, setTab }) {
+  const mine = cases.filter(c => c.studentId === ME.id).length;
+  const items = [
+    ["home", "Home", "Your overview", "home"],
+    ["chat", "Chat", "Talk to your agent", "chat"],
+    ["support", "My support", "Follow shared cases", "folder"]
+  ];
+  return html`
+    <main className="shell">
+      <aside className="side">
+        <div className="who-card">
+          <span className="avatar" aria-hidden="true">${ME.name.charAt(0)}</span>
+          <div><span className="tiny">Signed in as</span><b>${ME.name}</b></div>
+        </div>
+        <div className="navwrap">
+          <span className="tiny">Menu</span>
+          <nav className="nav" aria-label="Student">
+            ${items.map(([k, label, desc, icon]) => html`
+              <button key=${k} aria-current=${tab === k ? "page" : undefined} onClick=${() => setTab(k)}>
+                <span className="ni" aria-hidden="true"><${Icon} name=${icon} size=${18}/></span>
+                <span><span className="nt">${label}</span><span className="nd">${desc}</span></span>
+                ${k === "support" && mine ? html`<span className="count">${mine}</span>` : null}
+              </button>`)}
+          </nav>
+        </div>
+      </aside>
+      <div className="main">
+        ${tab === "home" ? html`<${StudentHome} cases=${cases} openChat=${() => setTab("chat")} goSupport=${() => setTab("support")}
+            ask=${q => { setTab("chat"); send(q); }}/>` : null}
+        ${tab === "chat" ? html`<${Chat} messages=${messages} typing=${typing} send=${send} onConsent=${onConsent}/>` : null}
+        ${tab === "support" ? html`<${Support} cases=${cases} goChat=${() => setTab("chat")}/>` : null}
+      </div>
+      <${StudentRail} cases=${cases}/>
+    </main>`;
+}
+
+/* ---------- staff screens ---------- */
+const Meter = ({ score }) => html`
+  <div className="meter" role="img" aria-label=${"Risk score " + score + " out of 100"}>
+    <div className=${"fill " + lvl(score).key} style=${{ width: score + "%" }}></div>
+    <span className="tick" style=${{ left: "40%" }}></span><span className="tick" style=${{ left: "70%" }}></span>
+  </div>`;
+
+function CaseDetail({ c, update }) {
+  if (!c) return html`<section className="panel"><div className="empty"><strong>No case selected</strong>Select a case to see the evidence and summary.</div></section>`;
+  const l = lvl(c.score);
+  return html`
+    <section className="panel detail" aria-label="Case detail">
+      <h2>${c.studentName}, ${AREA[c.domain].toLowerCase()}</h2>
+      <p className="sub">Case ${c.no}, opened ${c.opened}</p>
+
+      <h3>Risk score</h3>
+      <div className="scoreline"><b>${c.score}</b><${StaffPill} score=${c.score}/></div>
+      <${Meter} score=${c.score}/>
+
+      <h3>Evidence</h3>
+      <ul className="evidence">${c.evidence.map(e => html`<li key=${e}>${e}</li>`)}</ul>
+
+      <h3>Summary</h3>
+      <p>${c.summary}</p>
+
+      <h3>Consent</h3>
+      <div className="consentstamp"><${Icon} name="check" size=${18}/>Student agreed to share this at ${c.consentAt}</div>
+      <div className="scope">This case only includes ${AREA[c.domain].toLowerCase()} information. Other areas of the student's record aren't part of it.</div>
+
+      <div className="actions">
+        ${c.state === "New" ? html`<button className="btn primary" onClick=${() => update(c.no, "In Progress")}>Accept case</button>` : null}
+        ${c.state === "In Progress" ? html`<button className="btn primary" onClick=${() => update(c.no, "Resolved")}>Mark resolved</button>` : null}
+        ${c.state === "Waiting for Student" ? html`<button className="btn primary" onClick=${() => update(c.no, "In Progress")}>Resume work</button>` : null}
+        ${c.state === "New" || c.state === "In Progress" ? html`<button className="btn" onClick=${() => update(c.no, "Waiting for Student")}>Ask student for more information</button>` : null}
+      </div>
+      <p className="status" aria-live="polite">Status: ${c.state}. The student sees "${studentStatus(c.state)}".</p>
+
+      <details>
+        <summary>How this case was created</summary>
+        <ul className="trace">
+          <li>Tools used: ${c.trace.tools.map(t => html`<${React.Fragment} key=${t}><code>${t}</code> </${React.Fragment}>`)}</li>
+          <li>Knowledge search: ${c.trace.retrieved} retrieved, ${c.trace.authorized} allowed, ${c.trace.blocked} blocked, ${c.trace.sent} sent to the model</li>
+          <li>Case created after the student's consent, not automatically</li>
+        </ul>
+      </details>
+    </section>`;
+}
+
+function StaffApp({ cases, persona, setPersona, selected, setSelected, update }) {
+  const p = PERSONAS[persona];
+  const list = cases.filter(c => p.domains.includes(c.domain));
+  const chosen = list.find(c => c.no === selected) || null;
+  const count = s => list.filter(c => c.state === s).length;
+  return html`
+    <main className="shell staff">
+      <aside className="side">
+        <div className="who-card pick">
+          <label className="who">Signed in as
+            <select value=${persona} onChange=${e => { setPersona(e.target.value); setSelected(null); }}>
+              ${Object.entries(PERSONAS).map(([k, v]) => html`<option key=${k} value=${k}>${v.label}</option>`)}
+            </select>
+          </label>
+        </div>
+        <section className="queue" aria-label="Queue summary">
+          <span className="tiny">Your queue</span>
+          <div className="qn"><b>${list.length}</b><span>${list.length === 1 ? "case" : "cases"}</span></div>
+          <ul className="qs">
+            ${["New", "In Progress", "Waiting for Student", "Resolved"].map(s => html`<li key=${s}><span>${s}</span><b>${count(s)}</b></li>`)}
+          </ul>
+        </section>
+      </aside>
+      <div className="main">
+        <section className="hero compact">
+          <div className="hello">
+            <h1>${p.dept}</h1>
+            <p>Cases students have chosen to share with you.</p>
+          </div>
+        </section>
+        <section className="panel" aria-label="Case queue">
+          ${list.length === 0
+            ? html`<div className="empty"><strong>No cases right now</strong>New cases appear here when students share them.</div>`
+            : html`<div className="tablewrap"><table>
+                <thead><tr><th>Case</th><th>Student</th><th>Risk</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${list.map(c => html`
+                    <tr key=${c.no} aria-selected=${selected === c.no} tabIndex=${0}
+                        onClick=${() => setSelected(c.no)}
+                        onKeyDown=${e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(c.no); } }}>
+                      <td className="cn">${c.no}</td>
+                      <td>${c.studentName}</td>
+                      <td><${StaffPill} score=${c.score}/></td>
+                      <td>${c.state}</td>
+                    </tr>`)}
+                </tbody></table></div>`}
+        </section>
+      </div>
+      <div className="rail"><${CaseDetail} c=${chosen} update=${update}/></div>
+    </main>`;
+}
+
+/* ---------- app ---------- */
+function App() {
+  const [role, setRole] = useState("student");
+  const [tab, setTab] = useState("home");
+  const [persona, setPersona] = useState("counsellor");
+  const [selected, setSelected] = useState(null);
+  const [cases, setCases] = useState(seedCases);
+  const [messages, setMessages] = useState(firstMessage);
+  const [typing, setTyping] = useState(false);
+  const nextNo = useRef(124);
+  const live = useRef({});
+  live.current = { cases, messages, typing };
+
+  function send(text) {
+    const q = (text || "").trim();
+    if (!q || live.current.typing) return;
+    setMessages(m => [...m, { id: uid(), role: "user", text: q }]);
+    setTyping(true);
+    const ctx = { cases: live.current.cases, messages: live.current.messages };
+    setTimeout(() => {
+      const replies = respond(q, ctx);
+      setMessages(m => [...m, ...replies]);
+      setTyping(false);
+    }, 750);
+  }
+
+  function onConsent(id, accepted) {
+    const m = live.current.messages.find(x => x.id === id);
+    if (!m || m.status !== "pending") return;
+    if (!accepted) {
+      setMessages(ms => [...ms.map(x => x.id === id ? { ...x, status: "declined" } : x),
+        { id: uid(), role: "agent", type: "message", text: "No problem. Nothing was shared, and I'm here if you change your mind." }]);
+      return;
+    }
+    const no = "WEL" + String(nextNo.current++).padStart(7, "0");
+    const newCase = {
+      no, studentId: ME.id, studentName: ME.name, domain: m.domain, dept: m.dept, score: SCORE[m.domain],
+      state: "New", opened: "Today, " + nowTime(), consentAt: nowTime(),
+      evidence: EVIDENCE[m.domain], summary: SUMMARY[m.domain],
+      trace: { tools: TRACE_TOOLS, retrieved: 4, authorized: 3, blocked: 1, sent: 3 }
+    };
+    setCases(cs => [newCase, ...cs]);
+    setMessages(ms => [...ms.map(x => x.id === id ? { ...x, status: "accepted", caseNo: no } : x),
+      { id: uid(), role: "agent", type: "message", text: `Done. Case ${no} is with the ${m.dept}. You can follow it under My support.` }]);
+  }
+
+  const update = (no, state) => setCases(cs => cs.map(c => c.no === no ? { ...c, state } : c));
+  const reset = () => { setCases(seedCases()); setMessages(firstMessage()); setTyping(false); setTab("home"); setSelected(null); nextNo.current = 124; };
+
+  return html`
+    <div>
+      <header className="topbar">
+        <div className="brand">
+          <span className="mark"><${Icon} name="leaf" size=${20}/></span>
+          <div><span className="brand-name">Student support agent</span><span className="protonote">Prototype with mock data</span></div>
+        </div>
+        <div className="spacer"></div>
+        <div className="seg" role="group" aria-label="View as">
+          <span className="seg-label">Portal view</span>
+          <button aria-pressed=${role === "student"} onClick=${() => setRole("student")}>Student</button>
+          <button aria-pressed=${role === "staff"} onClick=${() => setRole("staff")}>Staff</button>
+        </div>
+        <button className="linkbtn" onClick=${reset}>Reset demo</button>
+      </header>
+      ${role === "student"
+        ? html`<${StudentApp} cases=${cases} messages=${messages} typing=${typing} send=${send} onConsent=${onConsent} tab=${tab} setTab=${setTab}/>`
+        : html`<${StaffApp} cases=${cases} persona=${persona} setPersona=${setPersona} selected=${selected} setSelected=${setSelected} update=${update}/>`}
+    </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App}/>`);
+</script>
+</body>
+</html>
